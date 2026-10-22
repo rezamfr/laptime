@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lap Time Tambang</title>
+<meta name="description" content="Pencatat cycle time HD/DT dan excavator untuk observasi tambang. Bekerja tanpa sinyal.">
+<meta name="theme-color" content="#172026">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one-column field tool. Sticky clock bar on top, fixed tab bar at bottom, big stable tap targets in between. */
+:root{
+  color-scheme:light;
+  --bg:#E9EDF0; --surface:#FFFFFF; --sunk:#DCE2E6; --fg:#172026; --muted:#56636C; --line:#C3CCD2;
+  --accent:#F2B705; --accent-ink:#172026; --front:#1D63A3; --dump:#A2491A; --ok:#24774A; --danger:#B3261E;
+  --ph0:#F2B705; --ph1:#4C9BD9; --ph2:#E0782F; --ph3:#8BA4B3;
+  --f-display:"Barlow Condensed","sans-serif-condensed","Roboto Condensed","Arial Narrow",sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Roboto Mono","Droid Sans Mono",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#11161A; --surface:#1A2127; --sunk:#232C33; --fg:#E7ECEF; --muted:#94A2AB; --line:#2E3942;
+  --accent:#F5C02A; --accent-ink:#11161A; --front:#62A9E8; --dump:#E8905C; --ok:#5CC08A; --danger:#F27A6E;
+  --ph0:#F5C02A; --ph1:#62A9E8; --ph2:#E8905C; --ph3:#9DB3C1; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent;
+  padding-top:env(safe-area-inset-top,0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:#172026}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#172026;color:#E9EDF0;
+  padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;align-items:center;justify-content:space-between;gap:12px}
+.clock{font-family:var(--f-mono);font-weight:600;font-size:2rem;letter-spacing:.02em;font-variant-numeric:tabular-nums;line-height:1}
+.toptxt{text-align:right;min-width:0}
+.toptxt .s1{font-family:var(--f-display);font-weight:700;font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toptxt .s2{font-size:.8rem;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+main{padding-top:14px;padding-bottom:calc(88px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(3,1fr);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs button{background:none;border:0;padding:12px 4px 14px;font-family:var(--f-display);font-weight:700;font-size:1.05rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-top:3px solid transparent}
+.tabs button[aria-current="page"]{color:var(--fg);border-top-color:var(--accent)}
+.tabs button:disabled{opacity:.35}
+
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.02em;margin:0;text-wrap:balance}
+h1{font-size:1.7rem;text-transform:uppercase}
+h2{font-size:1.25rem;text-transform:uppercase;letter-spacing:.05em}
+h3{font-size:1rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 14px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 10px;font-size:.9rem}
+.btn.block{width:100%;padding:13px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border:1.5px solid currentColor;white-space:nowrap}
+.chip.front{color:var(--front)} .chip.dump{color:var(--dump)} .chip.exca{color:var(--ok)}
+.chip.live{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.done{color:var(--muted)}
+.chip.bad{color:var(--danger)}
+.warn{background:var(--sunk);border-left:4px solid var(--danger);padding:10px 12px;border-radius:6px;font-size:.9rem}
+.note{background:var(--sunk);padding:10px 12px;border-radius:6px;font-size:.9rem}
+.banner{background:var(--sunk);border-left:4px solid var(--accent);padding:12px;border-radius:6px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+/* form */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;min-width:0}
+label.f input,label.f select,label.f textarea,.inp{font-size:1rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--fg);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:10px;min-width:0;width:100%}
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:8px}
+.roles label{display:flex;gap:10px;align-items:flex-start;border:2px solid var(--line);border-radius:var(--r);padding:12px;background:var(--bg)}
+.roles label:has(input:checked){border-color:var(--accent);background:var(--surface)}
+.roles input{margin-top:4px;accent-color:var(--accent)}
+.roles b{font-family:var(--f-display);font-size:1.15rem;text-transform:uppercase;letter-spacing:.04em;display:block}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.uchip{display:inline-flex;align-items:center;gap:4px;background:var(--sunk);border-radius:8px;padding:6px 6px 6px 12px;font-family:var(--f-mono);font-weight:600}
+.uchip button{border:0;background:none;color:var(--muted);font-size:1.1rem;padding:0 6px;line-height:1}
+.addrow{display:flex;gap:8px}
+.addrow input{flex:1;min-width:0;font-family:var(--f-mono);font-size:1.05rem;background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:10px}
+
+/* history */
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-weight:600;font-size:.9rem}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.daygrp{display:flex;flex-direction:column;gap:8px}
+.sitem{display:flex;flex-direction:column;gap:8px}
+.sitem .meta{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:.86rem;color:var(--muted)}
+.sitem.active{border-color:var(--accent);border-width:2px}
+
+/* DT cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.ucard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.ucard.running{border-color:var(--fg)}
+.ucard.stopped{opacity:.75;background:var(--sunk)}
+.uhead{display:flex;align-items:center;gap:8px}
+.lambung{font-family:var(--f-mono);font-weight:600;font-size:1.6rem;line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cyc{font-size:.8rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.ustat{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:.95rem}
+.ustat b{font-family:var(--f-display);font-size:1.15rem;text-transform:uppercase;letter-spacing:.03em}
+.since{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;font-size:1.2rem}
+.dots{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.dots span{height:6px;border-radius:3px;background:var(--sunk)}
+.dots span.on{background:var(--fg)} .dots span.skip{background:repeating-linear-gradient(90deg,var(--muted) 0 3px,transparent 3px 6px)}
+.acts{display:grid;gap:8px;grid-template-columns:1fr}
+.acts.two{grid-template-columns:1fr 1.3fr}
+.tap{border:0;border-radius:var(--r);min-height:76px;padding:10px;font-family:var(--f-display);font-weight:700;font-size:1.55rem;letter-spacing:.04em;text-transform:uppercase;background:var(--accent);color:var(--accent-ink);line-height:1.05;user-select:none;-webkit-user-select:none}
+.tap .k{display:block;font-family:var(--f-mono);font-size:.8rem;font-weight:600;opacity:.75;letter-spacing:0}
+.tap.alt{background:var(--sunk);color:var(--fg);border:2px solid var(--line)}
+.tap:active{transform:scale(.98);filter:brightness(.92)}
+.tap:disabled{opacity:.35;cursor:not-allowed}
+.ufoot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.lnk{background:none;border:0;color:var(--muted);font-weight:600;font-size:.9rem;padding:6px 2px;text-decoration:underline;text-underline-offset:3px}
+.lnk.danger{color:var(--danger)}
+
+/* Exca */
+.hsel{display:flex;gap:8px;flex-wrap:wrap}
+.hsel button{font-family:var(--f-mono);font-weight:600;font-size:1.1rem;padding:10px 14px;border-radius:8px;border:2px solid var(--line);background:var(--surface)}
+.hsel button[aria-pressed="true"]{border-color:var(--fg);background:var(--fg);color:var(--bg)}
+.xstat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.xstat div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.xstat span{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.xstat b{font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.bigtap{border:0;border-radius:14px;min-height:min(42vh,340px);width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#11161A;user-select:none;-webkit-user-select:none}
+.bigtap .lbl{font-size:.85rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600;opacity:.75}
+.bigtap .ph{font-family:var(--f-display);font-weight:700;font-size:clamp(2.6rem,12vw,4.2rem);text-transform:uppercase;line-height:1;letter-spacing:.02em}
+.bigtap .run{font-family:var(--f-mono);font-size:.95rem;font-weight:600;opacity:.8;text-align:center;padding:0 10px}
+.bigtap:active{filter:brightness(.9)}
+.bigtap:disabled{background:var(--sunk)!important;color:var(--muted);cursor:not-allowed}
+.xrow{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+.xrow .tap{min-height:64px;font-size:1.2rem}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--sunk)}
+td.m{font-family:var(--f-mono)}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--sunk)}
+td.open{color:var(--dump);font-weight:600}
+td.inc{color:var(--danger);font-weight:600}
+.empty{padding:22px;text-align:center;color:var(--muted);background:var(--surface);border:1.5px dashed var(--line);border-radius:var(--r);display:flex;flex-direction:column;gap:10px;align-items:center}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(10,14,17,.55);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:640px;max-height:88%;overflow:auto;border-radius:16px 16px 0 0;
+  padding-top:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.92rem;max-width:calc(100% - 32px);text-align:center}
+.ver{text-align:center;font-size:.75rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.tap:active,.bigtap:active{transform:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="clock" id="clock" aria-label="Jam HP">--:--:--</div>
+  <div class="toptxt"><div class="s1" id="t1">Lap Time Tambang</div><div class="s2" id="t2">Jam diambil dari jam HP</div></div>
+</header>
+<main id="app"><div class="empty">Memuat data…</div></main>
+<nav class="tabs" id="tabs">
+  <button data-view="sessions">Riwayat</button>
+  <button data-view="record">Catat</button>
+  <button data-view="summary">Ringkasan</button>
+</nav>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const VERSION='2.0';
+const AUTO_CLOSE_H=12;
+const $=s=>document.querySelector(s);
+const app=$('#app');
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const p2=n=>String(n).padStart(2,'0');
+const fmtT=ms=>{if(ms==null)return '–';const d=new Date(ms);return p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());};
+const fmtD=s=>{if(s==null||isNaN(s))return '–';s=Math.max(0,Math.round(s));const h=Math.floor(s/3600);const m=Math.floor(s%3600/60);return (h?h+':'+p2(m):m)+':'+p2(s%60);};
+const fmtS1=s=>s==null?'–':(Math.round(s*10)/10).toFixed(1).replace('.',',');
+const fmtDT=ms=>{if(!ms)return '–';const d=new Date(ms);return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes());};
+const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const MONTHS=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+const ROLE={
+  front:{label:'DT – Front',cls:'front',off:0,steps:['Tiba di Front','Idle / Antre','Manuver','Loading','Berangkat Isi'],
+    tcode:['T0','T1','T2','T3','T4'],durs:['Idle','Manuver','Loading']},
+  dump:{label:'DT – Dumping',cls:'dump',off:5,steps:['Tiba di Dumping','Idle / Antre','Manuver','Dumping','Berangkat Kosong'],
+    tcode:['T5','T6','T7','T8','T9'],durs:['Idle','Manuver','Dumping']},
+  exca:{label:'Excavator',cls:'exca'}
+};
+const PH=['Digging','Loaded Swing','Dumping','Empty Swing'];
+const PHC=['var(--ph0)','var(--ph1)','var(--ph2)','var(--ph3)'];
+const HDR=[
+  ['date','Tanggal / Jam','datetime-local'],['site','Site Location'],['contractor','Mining Contractor'],
+  ['activity','Aktivitas','select',['OB Removal','Coal Getting']],
+  ['loadingArea','Loading Area'],['dumpingArea','Dumping Area / ROM / CPP'],
+  ['excaName','Excavator Name'],['excaCap','Kapasitas Excavator'],['bucket','Type of Bucket'],['excaUnit','No. Unit Excavator (lambung)'],
+  ['dtName','Dumptruck Name'],['dtCap','Kapasitas DT'],['distance','Distance'],['grade','Grade Characteristics (%)'],
+  ['auditor','Nama Auditor'],['remarks','Remarks']
+];
+
+/* ---------- storage: IndexedDB, fallback localStorage ---------- */
+const store={
+  db:null,mode:'idb',
+  open(){return new Promise(res=>{
+    try{const r=indexedDB.open('laptime-tambang',1);
+      r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('sessions'))d.createObjectStore('sessions',{keyPath:'id'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');};
+      r.onsuccess=()=>{this.db=r.result;res(true);};
+      r.onerror=()=>{this.mode='ls';res(false);};
+    }catch(e){this.mode='ls';res(false);}
+  });},
+  tx(name,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(name,mode);const st=t.objectStore(name);const out=fn(st);t.oncomplete=()=>res(out&&out.result!==undefined?out.result:undefined);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);});},
+  async all(){
+    if(this.mode==='idb'){return new Promise((res,rej)=>{const r=this.db.transaction('sessions').objectStore('sessions').getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error);});}
+    try{return JSON.parse(localStorage.getItem('ltt.sessions')||'[]');}catch(e){return [];}
+  },
+  async put(s){
+    const clean=JSON.parse(JSON.stringify(s));
+    if(this.mode==='idb')return this.tx('sessions','readwrite',st=>st.put(clean));
+    const a=await this.all();const i=a.findIndex(x=>x.id===s.id);if(i>=0)a[i]=clean;else a.push(clean);localStorage.setItem('ltt.sessions',JSON.stringify(a));
+  },
+  async del(id){
+    if(this.mode==='idb')return this.tx('sessions','readwrite',st=>st.delete(id));
+    const a=(await this.all()).filter(x=>x.id!==id);localStorage.setItem('ltt.sessions',JSON.stringify(a));
+  },
+  async getMeta(){
+    if(this.mode==='idb'){return new Promise(res=>{const r=this.db.transaction('meta').objectStore('meta').get('app');r.onsuccess=()=>res(r.result||{});r.onerror=()=>res({});});}
+    try{return JSON.parse(localStorage.getItem('ltt.meta')||'{}');}catch(e){return {};}
+  },
+  async putMeta(m){
+    if(this.mode==='idb')return this.tx('meta','readwrite',st=>st.put(m,'app'));
+    localStorage.setItem('ltt.meta',JSON.stringify(m));
+  }
+};
+let S={sessions:[],activeId:null,view:'sessions',sound:true};
+let storageErr=false, persisted=null;
+async function persist(s){
+  try{await store.put(s);}catch(e){if(!storageErr){storageErr=true;toast('Gagal menyimpan ke HP. Segera ekspor atau backup data.');render();}}
+}
+function saveMeta(){store.putMeta({activeId:S.activeId,view:S.view,sound:S.sound}).catch(()=>{});}
+function touch(s){s.lastActivity=Date.now();}
+function commit(s){touch(s);persist(s);render();}
+
+function newSession(role){
+  const d=new Date();const iso=d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes());
+  return {id:uid(),created:Date.now(),lastActivity:Date.now(),status:'aktif',endedAt:null,autoEnded:false,
+    role:role||'front',header:{date:iso,activity:'OB Removal'},units:[],stopped:{},
+    dt:{cycles:[]},exca:{siklus:[],sel:null},undo:{}};
+}
+function normalize(s){
+  s.status=s.status||'aktif';s.stopped=s.stopped||{};s.undo=s.undo||{};s.units=s.units||[];
+  s.dt=s.dt||{cycles:[]};s.exca=s.exca||{siklus:[],sel:null};s.header=s.header||{};
+  s.lastActivity=s.lastActivity||s.created||Date.now();
+  return s;
+}
+const cur=()=>S.sessions.find(x=>x.id===S.activeId)||null;
+const isLive=s=>s&&s.status!=='selesai';
+
+/* ---------- ending sessions ---------- */
+function lastTapTime(s){
+  let m=s.created||0;
+  s.dt.cycles.forEach(c=>c.t.forEach(v=>{if(v!=null&&v>m)m=v;}));
+  s.exca.siklus.forEach(k=>{k.taps.forEach(t=>{if(t.t>m)m=t.t;});if(k.end&&k.end>m)m=k.end;});
+  return m;
+}
+function closeOpen(s){
+  let n=0;
+  s.dt.cycles.forEach(c=>{if(!c.done){c.done=true;c.incomplete=true;n++;}});
+  s.exca.siklus.forEach(k=>{if(k.end==null){k.end=k.taps.length?k.taps[k.taps.length-1].t:Date.now();k.incomplete=true;n++;}});
+  s.exca.sel=null;s.undo={};
+  return n;
+}
+function endSession(s,auto){
+  const n=closeOpen(s);
+  s.status='selesai';s.endedAt=auto?Math.max(lastTapTime(s),s.lastActivity||0):Date.now();s.autoEnded=!!auto;
+  if(!auto)touch(s);
+  persist(s);
+  return n;
+}
+function autoClose(){
+  const lim=Date.now()-AUTO_CLOSE_H*3600e3;let n=0;
+  S.sessions.forEach(s=>{if(isLive(s)&&(s.lastActivity||s.created)<lim){endSession(s,true);n++;}});
+  return n;
+}
+
+/* ---------- feedback ---------- */
+let actx=null;
+function feedback(strong){
+  try{navigator.vibrate&&navigator.vibrate(strong?[40,40,40]:45);}catch(e){}
+  if(!S.sound)return;
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=strong?880:1320;o.type='square';
+    g.gain.setValueAtTime(.08,actx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+.09);
+    o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.1);}catch(e){}
+}
+let toastT=null;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800);}
+
+let downAt=0,downEl=null;
+document.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-tap]');if(b){downAt=Date.now();downEl=b;}},true);
+const tapTime=el=>(el===downEl&&Date.now()-downAt<1500)?downAt:Date.now();
+
+let wl=null;
+async function wake(on){
+  try{if(on&&!wl&&navigator.wakeLock){wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>wl=null);}
+    else if(!on&&wl){await wl.release();wl=null;}}catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(S.view==='record'&&isLive(cur()))wake(true);if(autoClose())render();}});
+
+async function askPersist(){
+  try{if(navigator.storage&&navigator.storage.persisted){persisted=await navigator.storage.persisted();
+    if(!persisted&&navigator.storage.persist){persisted=await navigator.storage.persist();}}}catch(e){}
+}
+
+/* ---------- DT logic ---------- */
+function activeCycle(s,u){for(let i=s.dt.cycles.length-1;i>=0;i--){const c=s.dt.cycles[i];if(c.unit===u)return c.done?null:c;}return null;}
+function lastCycle(s,u){for(let i=s.dt.cycles.length-1;i>=0;i--){if(s.dt.cycles[i].unit===u)return s.dt.cycles[i];}return null;}
+function pushUndo(s,key,item){(s.undo[key]=s.undo[key]||[]).push(item);if(s.undo[key].length>30)s.undo[key].shift();}
+function dtStep(u,kind,t){
+  const s=cur();if(!isLive(s)||s.stopped[u])return;const off=ROLE[s.role].off;
+  let c=activeCycle(s,u);
+  if(!c){c={id:uid(),unit:u,seq:s.dt.cycles.filter(x=>x.unit===u).length+1,t:Array(10).fill(null),pos:0,done:false};
+    s.dt.cycles.push(c);pushUndo(s,u,{type:'create',id:c.id});}
+  else pushUndo(s,u,{type:'mod',id:c.id,t:c.t.slice(),pos:c.pos,done:c.done,noIdle:!!c.noIdle});
+  if(kind==='direct'){c.t[off+1]=t;c.t[off+2]=t;c.pos=3;c.noIdle=true;}
+  else if(kind==='skip'){c.pos++;}
+  else{c.t[off+c.pos]=t;c.pos++;}
+  if(c.pos>=5)c.done=true;
+  feedback(c.done);commit(s);
+}
+function dtUndo(u){
+  const s=cur();if(!isLive(s))return;const st=s.undo[u];if(!st||!st.length){toast('Tidak ada yang bisa dibatalkan');return;}
+  const a=st.pop();const i=s.dt.cycles.findIndex(c=>c.id===a.id);
+  if(i>=0){if(a.type==='create')s.dt.cycles.splice(i,1);else Object.assign(s.dt.cycles[i],{t:a.t,pos:a.pos,done:a.done,noIdle:a.noIdle,incomplete:false});}
+  toast('Tekanan terakhir '+u+' dibatalkan');commit(s);
+}
+function stopUnit(u){
+  const s=cur();const c=activeCycle(s,u);
+  if(c){c.done=true;c.incomplete=true;}
+  s.stopped[u]=true;s.undo[u]=[];
+  toast(u+' berhenti diamati'+(c?' · cycle terakhir ditandai tidak lengkap':''));commit(s);
+}
+function dtDurs(s,c){const o=ROLE[s.role].off,t=c.t;const d=(a,b)=>(t[o+a]!=null&&t[o+b]!=null)?(t[o+b]-t[o+a])/1000:null;return [d(1,2),d(2,3),d(3,4)];}
+const dtStatus=c=>c.incomplete?'tidak lengkap':c.done?'lengkap':'berjalan';
+
+/* ---------- Exca logic ---------- */
+function xActive(s){const a=s.exca.siklus;const l=a[a.length-1];return l&&l.end==null?l:null;}
+function xTap(t){
+  const s=cur();if(!isLive(s))return;let k=xActive(s);
+  if(!k){if(!s.exca.sel){toast('Pilih nomor lambung DT dulu');return;}
+    k={id:uid(),no:s.exca.siklus.length+1,hauler:s.exca.sel,taps:[],end:null,remarks:''};s.exca.siklus.push(k);}
+  k.taps.push({p:k.taps.length%4,t});feedback(false);commit(s);
+}
+function xFull(t){
+  const s=cur();const k=xActive(s);if(!k||!k.taps.length){toast('Belum ada siklus berjalan');return;}
+  k.end=t;s.exca.sel=null;feedback(true);toast('Siklus '+k.no+' ('+k.hauler+') selesai');commit(s);
+}
+function xUndo(){
+  const s=cur();if(!isLive(s))return;const a=s.exca.siklus;const k=a[a.length-1];if(!k){toast('Tidak ada yang bisa dibatalkan');return;}
+  if(k.end!=null){k.end=null;k.incomplete=false;s.exca.sel=k.hauler;toast('Siklus '+k.no+' dibuka lagi');}
+  else{k.taps.pop();if(!k.taps.length){a.pop();toast('Siklus dibatalkan');}}
+  commit(s);
+}
+/* A phase lasts until the next tap. The very last tap of a cycle ends at "DT Penuh":
+   that is reliable only for Dumping (operator presses right after the last dump). A trailing
+   Empty Swing or Digging (pre-dig for the next truck) is not timed, and a forced/auto end times nothing. */
+function xPasses(k){
+  const out=[];const n=k.taps.length;
+  k.taps.forEach((tp,i)=>{
+    let nx=i<n-1?k.taps[i+1].t:k.end;
+    if(i===n-1&&(k.incomplete||tp.p!==2))nx=null;
+    const pi=Math.floor(i/4);
+    out[pi]=out[pi]||{start:tp.t,d:[null,null,null,null],dumped:false};
+    out[pi].d[tp.p]=nx!=null?(nx-tp.t)/1000:null;
+    if(tp.p===2)out[pi].dumped=true;
+  });
+  out.forEach(p=>p.ct=p.d.every(v=>v!=null)?p.d.reduce((a,b)=>a+b,0):null);
+  return out;
+}
+const xBuckets=k=>xPasses(k).filter(p=>p.dumped).length;
+function xFill(k){
+  if(!k.taps.length)return null;
+  let li=-1;k.taps.forEach((tp,i)=>{if(tp.p===2)li=i;});
+  if(li<0)return null;
+  const endDump=li<k.taps.length-1?k.taps[li+1].t:(k.incomplete?null:k.end);
+  return endDump!=null?(endDump-k.taps[0].t)/1000:null;
+}
+const avg=a=>{a=a.filter(v=>v!=null);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;};
+
+/* ---------- render ---------- */
+function setTop(){
+  const s=cur();
+  $('#t1').textContent=s?ROLE[s.role].label+(isLive(s)?'':' · selesai'):'Lap Time Tambang';
+  $('#t2').textContent=s?[s.header.site,s.header.auditor].filter(Boolean).join(' · ')||'Sesi tanpa nama':'Jam diambil dari jam HP';
+  document.querySelectorAll('#tabs button').forEach(b=>{b.setAttribute('aria-current',(b.dataset.view===S.view||(S.view==='setup'&&b.dataset.view==='sessions'))?'page':'false');
+    b.disabled=(b.dataset.view!=='sessions'&&!s);});
+}
+function render(){
+  if(!cur()&&S.view!=='setup')S.view='sessions';
+  setTop();
+  wake(S.view==='record'&&isLive(cur()));
+  ({sessions:vSessions,setup:vSetup,record:vRecord,summary:vSummary})[S.view]();
+  tick();
+}
+function go(v){S.view=v;saveMeta();render();window.scrollTo(0,0);}
+
+/* history */
+let filt={q:'',st:'semua'};
+function sessionCount(s){return s.role==='exca'?s.exca.siklus.length+' siklus':s.dt.cycles.length+' cycle';}
+function incCount(s){return s.role==='exca'?s.exca.siklus.filter(k=>k.incomplete).length:s.dt.cycles.filter(c=>c.incomplete).length;}
+function dayKey(s){const d=(s.header.date||'').slice(0,10);if(d)return d;const x=new Date(s.created);return x.getFullYear()+'-'+p2(x.getMonth()+1)+'-'+p2(x.getDate());}
+function dayLabel(k){const d=new Date(k+'T00:00');if(isNaN(d))return k;return DAYS[d.getDay()]+', '+d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear();}
+function matches(s){
+  if(filt.st==='aktif'&&!isLive(s))return false;
+  if(filt.st==='selesai'&&isLive(s))return false;
+  if(['front','dump','exca'].includes(filt.st)&&s.role!==filt.st)return false;
+  const q=filt.q.trim().toLowerCase();if(!q)return true;
+  const h=s.header;
+  return [h.site,h.contractor,h.loadingArea,h.dumpingArea,h.auditor,h.excaUnit,h.excaName,h.dtName,h.activity,ROLE[s.role].label,...s.units].join(' ').toLowerCase().includes(q);
+}
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(S.view==='sessions')render();});
+function vSessions(){
+  const all=S.sessions.slice().sort((a,b)=>b.created-a.created);
+  const list=all.filter(matches);
+  const groups=[];list.forEach(s=>{const k=dayKey(s);let g=groups.find(x=>x.k===k);if(!g){g={k,items:[]};groups.push(g);}g.items.push(s);});
+  groups.sort((a,b)=>a.k<b.k?1:-1);
+  const live=all.filter(isLive);
+  const F=[['semua','Semua'],['aktif','Aktif'],['selesai','Selesai'],['front','DT Front'],['dump','DT Dumping'],['exca','Excavator']];
+  app.innerHTML=`
+  <div class="spread"><h1>Riwayat Sesi</h1><button class="btn primary" data-a="new">+ Sesi baru</button></div>
+  ${storageErr||store.mode!=='idb'?'<div class="warn">Penyimpanan HP bermasalah. Data mungkin tidak tersimpan permanen. Ekspor Excel atau buat backup setelah setiap sesi.</div>':''}
+  ${installEvt?'<div class="banner"><span class="small"><b>Pasang aplikasi di HP</b> agar bisa dibuka dari home screen, juga tanpa sinyal.</span><button class="btn sm primary" data-a="install">Pasang</button></div>':''}
+  ${live.length>1?`<div class="note small">${live.length} sesi masih aktif. Sesi tanpa aktivitas lebih dari ${AUTO_CLOSE_H} jam ditutup otomatis.</div>`:''}
+  ${all.length?`<input class="inp" id="q" type="search" placeholder="Cari site, auditor, nomor lambung…" value="${esc(filt.q)}" autocomplete="off">
+  <div class="filters">${F.map(([k,l])=>`<button data-a="filt" data-k="${k}" aria-pressed="${filt.st===k}">${l}</button>`).join('')}</div>`:''}
+  <div id="slist">${sessionList(groups,all.length)}</div>
+  <div class="panel"><h2>Data &amp; backup</h2>
+    <div class="small muted">${all.length} sesi tersimpan di HP ini · ${persisted===true?'penyimpanan permanen aktif':persisted===false?'penyimpanan permanen belum diizinkan browser':'status penyimpanan belum diketahui'}.
+    Backup menyimpan seluruh riwayat ke satu file, untuk dipindah ke HP lain atau disimpan di laptop.</div>
+    <div class="row"><button class="btn sm" data-a="backup" ${all.length?'':'disabled'}>Backup semua data</button>
+    <button class="btn sm" data-a="restore">Pulihkan dari backup</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
+  </div>
+  <div class="note small">Jam pencatatan memakai jam HP. Pastikan tanggal &amp; waktu HP disetel <b>otomatis</b> dan cocokkan jam di atas dengan HP auditor lain sebelum mulai.</div>
+  <div class="ver">Lap Time Tambang v${VERSION}</div>`;
+}
+function sessionList(groups,total){
+  if(!total)return '<div class="empty"><b>Belum ada sesi.</b><span>Tekan <b>+ Sesi baru</b>, pilih peran (DT Front, DT Dumping, atau Excavator), lalu daftarkan nomor lambung.</span></div>';
+  if(!groups.length)return '<div class="empty">Tidak ada sesi yang cocok dengan pencarian.</div>';
+  return groups.map(g=>`<div class="daygrp"><h3>${esc(dayLabel(g.k))}</h3>${g.items.map(sItem).join('')}</div>`).join('');
+}
+function sItem(s){
+  const inc=incCount(s);const h=s.header;
+  const st=isLive(s)?'<span class="chip live">Aktif</span>':`<span class="chip done">${s.autoEnded?'Diakhiri otomatis':'Selesai'}</span>`;
+  return `<div class="panel sitem ${s.id===S.activeId?'active':''}">
+    <div class="row"><span class="chip ${ROLE[s.role].cls}">${ROLE[s.role].label}</span>${st}${inc?`<span class="chip bad">${inc} tidak lengkap</span>`:''}</div>
+    <div><h2>${esc(h.site||'Tanpa nama site')}</h2>
+    <div class="meta"><span>${esc((h.date||'').slice(11)||'')}${s.endedAt?' – '+fmtT(s.endedAt).slice(0,5):''}</span><span>${esc(h.loadingArea||'–')} → ${esc(h.dumpingArea||'–')}</span><span>${sessionCount(s)}</span><span>${s.units.length} unit</span>${h.auditor?`<span>${esc(h.auditor)}</span>`:''}</div></div>
+    <div class="row"><button class="btn primary sm" data-a="open" data-id="${s.id}">Buka</button>
+    <button class="btn sm" data-a="exp" data-id="${s.id}">Ekspor Excel</button>
+    <button class="btn sm ghost" data-a="dup" data-id="${s.id}">Salin jadi sesi baru</button>
+    <button class="btn sm ghost" data-a="del" data-id="${s.id}">Hapus</button></div>
+  </div>`;
+}
+
+let draft=null;
+function vSetup(){
+  const s=draft;const h=s.header;
+  app.innerHTML=`
+  <div class="spread"><h1>${s._new?'Sesi baru':'Info sesi'}</h1><button class="btn ghost sm" data-a="cancelSetup">Batal</button></div>
+  <div class="panel"><h2>Peran saya</h2>
+    <div class="roles">${['front','dump','exca'].map(r=>`<label><input type="radio" name="role" id="role-${r}" value="${r}" ${s.role===r?'checked':''} ${!s._new?'disabled':''}>
+      <span><b>${ROLE[r].label}</b><span class="small muted">${r==='front'?'Catat T0–T4 beberapa DT di loading point':r==='dump'?'Catat T5–T9 beberapa DT di disposal / ROM':'Catat Digging–Swing–Dumping per pass'}</span></span></label>`).join('')}</div>
+    ${!s._new?'<div class="small muted">Peran tidak bisa diubah setelah sesi dibuat.</div>':''}
+  </div>
+  <div class="panel"><h2>Nomor lambung</h2>
+    <div class="small muted">${s.role==='exca'?'DT yang akan dimuat excavator ini. Bisa ditambah lagi saat pencatatan.':'DT yang akan Anda amati. Bisa ditambah lagi saat pencatatan.'}</div>
+    <div class="addrow"><input id="unitIn" placeholder="mis. HD0038" autocapitalize="characters" autocomplete="off"><button class="btn" data-a="addUnitDraft">Tambah</button></div>
+    <div class="chips">${s.units.map((u,i)=>`<span class="uchip">${esc(u)}<button aria-label="Hapus ${esc(u)}" data-a="rmUnitDraft" data-i="${i}">×</button></span>`).join('')||'<span class="small muted">Belum ada.</span>'}</div>
+  </div>
+  <div class="panel"><h2>Header form</h2><div class="grid2">
+    ${HDR.map(([k,l,type,opts])=>`<label class="f">${l}${type==='select'?`<select id="h-${k}" data-h="${k}">${opts.map(o=>`<option ${h[k]===o?'selected':''}>${o}</option>`).join('')}</select>`
+      :`<input id="h-${k}" data-h="${k}" type="${type||'text'}" value="${esc(h[k]||'')}">`}</label>`).join('')}
+  </div></div>
+  <button class="btn primary block" data-a="saveSetup">${s._new?'Simpan & mulai mencatat':'Simpan'}</button>`;
+}
+function readDraft(){
+  document.querySelectorAll('[data-h]').forEach(el=>draft.header[el.dataset.h]=el.value.trim());
+  const r=document.querySelector('input[name=role]:checked');if(r&&draft._new)draft.role=r.value;
+}
+
+function endedBanner(s){
+  const inc=incCount(s);
+  return `<div class="banner"><span class="small"><b>Sesi ${s.autoEnded?'diakhiri otomatis':'selesai'}</b> pada ${fmtDT(s.endedAt)}${inc?` · ${inc} cycle tidak lengkap`:''}. Data tersimpan dan bisa diekspor.</span>
+    <span class="row"><button class="btn sm primary" data-a="exp" data-id="${s.id}">Ekspor Excel</button><button class="btn sm" data-a="reopen">Buka kembali</button></span></div>`;
+}
+function vRecord(){
+  const s=cur();
+  if(s.role==='exca')return vExca(s);
+  const R=ROLE[s.role];const live=isLive(s);
+  const act=s.units.filter(u=>!s.stopped[u]),stp=s.units.filter(u=>s.stopped[u]);
+  app.innerHTML=`
+  ${live?'':endedBanner(s)}
+  <div class="cards">${act.map(u=>dtCard(s,R,u,live)).join('')}</div>
+  ${s.units.length?'':'<div class="empty">Belum ada nomor lambung. Tambahkan di bawah.</div>'}
+  ${stp.length?`<h3>Berhenti diamati</h3><div class="cards">${stp.map(u=>dtCard(s,R,u,live)).join('')}</div>`:''}
+  ${live?`<div class="panel"><div class="addrow"><input id="unitAdd" placeholder="Tambah nomor lambung" autocapitalize="characters" autocomplete="off"><button class="btn" data-a="addUnit">Tambah</button></div>
+  <label class="row small"><input type="checkbox" id="snd" ${S.sound?'checked':''}> Bunyi beep saat menekan</label></div>
+  <button class="btn danger block" data-a="endSession">Akhiri sesi</button>`:''}`;
+}
+function dtCard(s,R,u,live){
+  const c=activeCycle(s,u);const last=lastCycle(s,u);const off=R.off;const stopped=!!s.stopped[u];
+  const pos=c?c.pos:0;const seq=c?c.seq:(last?last.seq+(stopped?0:1):1);
+  const nDone=s.dt.cycles.filter(x=>x.unit===u&&x.done&&!x.incomplete).length;
+  let state,since=null;
+  if(stopped){state='Berhenti diamati';}
+  else if(!c){state='Belum tiba';if(last&&last.done){const lt=last.t.slice(off,off+5).filter(v=>v!=null).pop();state=s.role==='front'?'Di jalan (trucking)':'Di jalan (kembali)';since=lt;}}
+  else{state=R.steps[pos-1]||'';for(let i=pos-1;i>=0;i--){if(c.t[off+i]!=null){since=c.t[off+i];break;}}}
+  const dots=[0,1,2,3,4].map(i=>{const on=c&&i<pos;const sk=on&&c.t[off+i]==null;return `<span class="${sk?'skip':on?'on':''}"></span>`;}).join('');
+  let acts='';
+  if(live&&!stopped){
+    if(pos===1){acts=`<div class="acts two"><button class="tap alt" data-tap data-a="dt" data-k="next" data-u="${esc(u)}"><span class="k">${R.tcode[1]}</span>Idle / Antre</button>
+      <button class="tap" data-tap data-a="dt" data-k="direct" data-u="${esc(u)}"><span class="k">${R.tcode[2]} · tanpa antre</span>Manuver</button></div>`;}
+    else{acts=`<div class="acts"><button class="tap" data-tap data-a="dt" data-k="next" data-u="${esc(u)}"><span class="k">${R.tcode[pos]}</span>${R.steps[pos]}</button></div>`;}
+  }
+  let foot='';
+  if(live&&!stopped)foot=`<div class="ufoot"><button class="lnk" data-a="dtUndo" data-u="${esc(u)}">Batalkan tekan terakhir</button><button class="lnk" data-a="dt" data-k="skip" data-u="${esc(u)}">Lewati tahap</button><button class="lnk danger" data-a="stopUnit" data-u="${esc(u)}">Stop amati unit</button></div>`;
+  else if(live&&stopped)foot=`<div class="ufoot"><button class="lnk" data-a="resumeUnit" data-u="${esc(u)}">Lanjut amati unit ini</button></div>`;
+  return `<div class="ucard ${c?'running':''} ${stopped?'stopped':''}">
+    <div class="uhead"><span class="lambung">${esc(u)}</span><span class="cyc">${stopped||!live?nDone+' cycle lengkap':'Cycle '+seq}</span></div>
+    <div class="ustat"><b>${esc(state)}</b>${since!=null&&live&&!stopped?`<span class="since" data-since="${since}">0:00</span>`:''}</div>
+    ${live&&!stopped?`<div class="dots">${dots}</div>`:''}
+    ${acts}${foot}
+  </div>`;
+}
+
+function vExca(s){
+  const live=isLive(s);
+  const k=xActive(s);
+  const sel=k?k.hauler:s.exca.sel;
+  const n=k?k.taps.length:0;
+  const nextP=n%4;
+  const curP=n?k.taps[n-1].p:null;
+  const passes=k?xPasses(k):[];
+  const lastCT=(()=>{for(let i=passes.length-1;i>=0;i--)if(passes[i].ct!=null)return passes[i].ct;return null;})();
+  app.innerHTML=`
+  ${live?'':endedBanner(s)}
+  <div class="spread"><div><div class="small muted">Excavator</div><div class="lambung">${esc(s.header.excaUnit||'–')}</div></div>
+    <div class="small muted" style="text-align:right">Siklus selesai: <b>${s.exca.siklus.filter(x=>x.end!=null&&!x.incomplete).length}</b></div></div>
+  ${live?`<div class="panel"><div class="spread"><h2>DT yang dimuat</h2>${k?'<span class="small muted">Ketuk untuk ganti nomor</span>':''}</div>
+    <div class="hsel">${s.units.map(u=>`<button data-a="xsel" data-u="${esc(u)}" aria-pressed="${sel===u}">${esc(u)}</button>`).join('')||'<span class="small muted">Tambahkan nomor lambung DT di bagian bawah.</span>'}</div>
+  </div>
+  <div class="xstat">
+    <div><span>Siklus</span><b>${k?k.no:'–'}</b></div>
+    <div><span>Bucket dituang</span><b>${k?xBuckets(k):0}</b></div>
+    <div><span>CT pass terakhir</span><b>${lastCT!=null?fmtS1(lastCT)+' s':'–'}</b></div>
+  </div>
+  <button class="bigtap" data-tap data-a="xtap" style="background:${PHC[nextP]}" ${!sel?'disabled':''}>
+    <span class="lbl">${!sel?'Pilih nomor lambung DT dulu':'Tekan saat mulai'}</span>
+    <span class="ph">${PH[nextP]}</span>
+    <span class="run">${curP!=null?`Sedang: ${PH[curP]} · <span class="since" data-since="${k.taps[n-1].t}" style="font-size:inherit">0:00</span>`:'Tap pertama = mulai digging bucket pertama'}</span>
+  </button>
+  <div class="xrow">
+    <button class="tap alt" data-a="xundo">Batalkan</button>
+    <button class="tap" data-tap data-a="xfull" style="background:var(--fg);color:var(--bg)" ${!k?'disabled':''}>DT Penuh<span class="k" style="opacity:.8">tekan setelah dumping terakhir</span></button>
+  </div>`:''}
+  ${passes.length?`<div class="tw"><table><thead><tr><th>Pass</th>${PH.map(p=>`<th>${p}</th>`).join('')}<th>CT</th></tr></thead><tbody>
+    ${passes.map((p,i)=>`<tr><td>${i+1}</td>${p.d.map(v=>`<td class="m">${fmtS1(v)}</td>`).join('')}<td class="m">${fmtS1(p.ct)}</td></tr>`).reverse().join('')}</tbody></table></div>`:''}
+  ${live?`<div class="panel"><div class="addrow"><input id="unitAdd" placeholder="Tambah nomor lambung DT" autocapitalize="characters" autocomplete="off"><button class="btn" data-a="addUnit">Tambah</button></div>
+  <label class="row small"><input type="checkbox" id="snd" ${S.sound?'checked':''}> Bunyi beep saat menekan</label></div>
+  <button class="btn danger block" data-a="endSession">Akhiri sesi</button>`:'<div class="note small">Lihat hasil lengkap di tab Ringkasan.</div>'}`;
+}
+
+function vSummary(){
+  const s=cur();const h=s.header;
+  const info=`<div class="panel"><div class="spread"><span class="row"><span class="chip ${ROLE[s.role].cls}">${ROLE[s.role].label}</span>${isLive(s)?'<span class="chip live">Aktif</span>':`<span class="chip done">${s.autoEnded?'Diakhiri otomatis':'Selesai'}</span>`}</span><button class="btn sm" data-a="editInfo">Edit info</button></div>
+    <div class="small muted">${esc([h.site,h.activity,(h.loadingArea||'–')+' → '+(h.dumpingArea||'–'),h.auditor].filter(Boolean).join(' · '))}</div>
+    <div class="row"><button class="btn primary" data-a="exp" data-id="${s.id}">Ekspor Excel</button>${navigator.canShare?`<button class="btn" data-a="share" data-id="${s.id}">Bagikan Excel</button>`:''}</div></div>`;
+  if(s.role==='exca'){
+    const rows=s.exca.siklus.map(k=>{const ps=xPasses(k);return `<tr class="click" data-a="xedit" data-id="${k.id}"><td>${k.no}</td><td class="m">${esc(k.hauler)}</td><td class="m">${fmtT(k.taps[0]&&k.taps[0].t)}</td><td>${xBuckets(k)}</td>
+      <td class="m">${fmtS1(avg(ps.map(p=>p.ct)))}</td><td class="m ${k.incomplete?'inc':k.end==null?'open':''}">${k.incomplete?'tidak lengkap':k.end==null?'berjalan':fmtS1(xFill(k))}</td></tr>`;}).join('');
+    app.innerHTML=info+(rows?`<div class="tw"><table><thead><tr><th>Siklus</th><th>DT</th><th>Mulai</th><th>Bucket</th><th>Rata CT (s)</th><th>Filling (s)</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="small muted">Filling time = digging pertama sampai dumping terakhir selesai. Ketuk baris untuk detail pass.</div>`:'<div class="empty">Belum ada siklus tercatat.</div>');
+    return;
+  }
+  const R=ROLE[s.role],o=R.off;
+  const cyc=s.dt.cycles.slice().sort((a,b)=>(a.t.find(v=>v!=null)??0)-(b.t.find(v=>v!=null)??0));
+  const rows=cyc.map(c=>{const d=dtDurs(s,c);const st=dtStatus(c);return `<tr class="click" data-a="dtedit" data-id="${c.id}"><td class="m">${esc(c.unit)}</td><td>${c.seq}</td>
+    ${[0,1,2,3,4].map(i=>`<td class="m">${fmtT(c.t[o+i])}</td>`).join('')}
+    ${d.map(v=>`<td class="m">${fmtD(v)}</td>`).join('')}<td class="${st==='tidak lengkap'?'inc':st==='berjalan'?'open':''}">${st==='lengkap'?'✓':st}</td></tr>`;}).join('');
+  app.innerHTML=info+(rows?`<div class="tw"><table><thead><tr><th>Unit</th><th>Cyc</th>${R.tcode.map((t,i)=>`<th>${t} ${R.steps[i].split(' ')[0]}</th>`).join('')}
+    ${R.durs.map(x=>`<th>${x} (m:s)</th>`).join('')}<th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="small muted">Ketuk baris untuk mengoreksi jam atau mengisi fuel, ODO, payload dan keterangan.</div>`:'<div class="empty">Belum ada cycle tercatat.</div>');
+}
+
+/* ---------- modals ---------- */
+const modal=$('#modal');
+function openModal(html){modal.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;modal.hidden=false;}
+function closeModal(){modal.hidden=true;modal.innerHTML='';}
+modal.addEventListener('click',e=>{if(e.target===modal)closeModal();});
+const toInputT=ms=>{if(ms==null)return '';const d=new Date(ms);return p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());};
+function fromInputT(v,ref){if(!v)return null;const [H,M,Sx]=v.split(':').map(Number);const d=new Date(ref);d.setHours(H,M,Sx||0,0);return d.getTime();}
+let confirmCb=null;
+function confirmBox(title,body,yesLabel,onYes,danger){
+  openModal(`<h2>${esc(title)}</h2><div class="small muted">${body}</div>
+    <div class="spread"><button class="btn" data-a="close">Batal</button><button class="btn ${danger?'danger':'primary'}" data-a="yes">${esc(yesLabel)}</button></div>`);
+  confirmCb=onYes;
+}
+
+function dtEdit(id){
+  const s=cur();const c=s.dt.cycles.find(x=>x.id===id);if(!c)return;const R=ROLE[s.role],o=R.off;
+  const f=(k,l)=>`<label class="f">${l}<input id="e-${k}" type="number" inputmode="decimal" step="any" value="${esc(c[k]??'')}"></label>`;
+  openModal(`<div class="spread"><h2>${esc(c.unit)} · cycle ${c.seq}</h2><button class="btn ghost sm" data-a="close">Tutup</button></div>
+    ${c.incomplete?'<div class="note small">Cycle ini ditandai <b>tidak lengkap</b> karena pengamatan dihentikan sebelum truk berangkat.</div>':''}
+    <div class="grid2">${[0,1,2,3,4].map(i=>`<label class="f">${R.tcode[i]} ${R.steps[i]}<input id="e-t${i}" type="time" step="1" value="${toInputT(c.t[o+i])}"></label>`).join('')}</div>
+    <div class="grid2">${f('fuel0','Fuel initial (L)')}${f('fuel1','Fuel final (L)')}${f('odo0','ODO initial (km)')}${f('odo1','ODO final (km)')}${f('payload','Payload (ton)')}</div>
+    <label class="f">Keterangan<textarea id="e-rem" rows="2">${esc(c.remarks||'')}</textarea></label>
+    <div class="spread"><button class="btn danger sm" data-a="dtDel" data-id="${c.id}">Hapus cycle</button><button class="btn primary" data-a="dtSave" data-id="${c.id}">Simpan</button></div>`);
+}
+function dtSave(id,del){
+  const s=cur();const i=s.dt.cycles.findIndex(x=>x.id===id);if(i<0)return closeModal();
+  if(del){s.dt.cycles.splice(i,1);s.undo={};closeModal();toast('Cycle dihapus');commit(s);return;}
+  const c=s.dt.cycles[i],o=ROLE[s.role].off;const ref=c.t.find(v=>v!=null)??Date.now();
+  for(let k=0;k<5;k++)c.t[o+k]=fromInputT($('#e-t'+k).value,ref);
+  ['fuel0','fuel1','odo0','odo1','payload'].forEach(k=>{const v=$('#e-'+k).value;c[k]=v===''?null:Number(v);});
+  c.remarks=$('#e-rem').value.trim();s.undo[c.unit]=[];
+  closeModal();toast('Tersimpan');commit(s);
+}
+function xEdit(id){
+  const s=cur();const k=s.exca.siklus.find(x=>x.id===id);if(!k)return;const ps=xPasses(k);
+  openModal(`<div class="spread"><h2>Siklus ${k.no}</h2><button class="btn ghost sm" data-a="close">Tutup</button></div>
+    ${k.incomplete?'<div class="note small">Siklus ini ditandai <b>tidak lengkap</b> karena sesi diakhiri sebelum DT penuh.</div>':''}
+    <div class="grid2"><label class="f">No. hauler (DT)<input id="x-h" value="${esc(k.hauler)}" autocapitalize="characters"></label>
+    <label class="f">Bucket dituang<input value="${xBuckets(k)}" disabled></label>
+    <label class="f">Hauler filling time<input value="${k.incomplete?'tidak lengkap':k.end==null?'berjalan':fmtS1(xFill(k))+' detik'}" disabled></label></div>
+    <div class="tw"><table><thead><tr><th>Pass</th>${PH.map(p=>`<th>${p}</th>`).join('')}<th>CT</th></tr></thead><tbody>
+    ${ps.map((p,i)=>`<tr><td>${i+1}</td>${p.d.map(v=>`<td class="m">${fmtS1(v)}</td>`).join('')}<td class="m">${fmtS1(p.ct)}</td></tr>`).join('')}</tbody></table></div>
+    <label class="f">Keterangan<textarea id="x-rem" rows="2">${esc(k.remarks||'')}</textarea></label>
+    <div class="spread"><button class="btn danger sm" data-a="xDel" data-id="${k.id}">Hapus siklus</button><button class="btn primary" data-a="xSave" data-id="${k.id}">Simpan</button></div>`);
+}
+function xSave(id,del){
+  const s=cur();const i=s.exca.siklus.findIndex(x=>x.id===id);if(i<0)return closeModal();
+  if(del){s.exca.siklus.splice(i,1);s.exca.siklus.forEach((k,j)=>k.no=j+1);closeModal();toast('Siklus dihapus');commit(s);return;}
+  const k=s.exca.siklus[i];k.hauler=$('#x-h').value.trim().toUpperCase()||k.hauler;k.remarks=$('#x-rem').value.trim();
+  closeModal();toast('Tersimpan');commit(s);
+}
+
+/* ---------- backup ---------- */
+function downloadBlob(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},3000);
+}
+function stamp(){const d=new Date();return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'-'+p2(d.getHours())+p2(d.getMinutes());}
+function backup(){
+  const data={app:'lap-time-tambang',version:VERSION,exported:Date.now(),sessions:S.sessions};
+  downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),'LapTimeTambang_backup_'+stamp()+'.json');
+  toast('Backup '+S.sessions.length+' sesi diunduh');
+}
+async function restore(file){
+  try{
+    const o=JSON.parse(await file.text());
+    const arr=Array.isArray(o)?o:o.sessions;
+    if(!Array.isArray(arr))throw new Error('format');
+    let added=0,updated=0,kept=0;
+    for(const raw of arr){
+      if(!raw||!raw.id||!raw.role)continue;const s=normalize(raw);
+      const i=S.sessions.findIndex(x=>x.id===s.id);
+      if(i<0){S.sessions.push(s);added++;await store.put(s);}
+      else if((s.lastActivity||0)>(S.sessions[i].lastActivity||0)){S.sessions[i]=s;updated++;await store.put(s);}
+      else kept++;
+    }
+    toast(`Dipulihkan: ${added} sesi baru, ${updated} diperbarui${kept?`, ${kept} sudah ada`:''}`);render();
+  }catch(e){toast('File backup tidak bisa dibaca. Pilih file .json hasil Backup.');}
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a],[data-view]');if(!b)return;
+  if(b.dataset.view){if(!b.disabled)go(b.dataset.view);return;}
+  const a=b.dataset.a,s=cur();
+  switch(a){
+    case 'new':draft=newSession('front');draft._new=true;go('setup');break;
+    case 'dup':{const src=S.sessions.find(x=>x.id===b.dataset.id);draft=newSession(src.role);draft._new=true;
+      const keep=Object.assign({},src.header);delete keep.date;Object.assign(draft.header,keep);draft.units=src.units.slice();go('setup');break;}
+    case 'open':S.activeId=b.dataset.id;saveMeta();go('record');break;
+    case 'exp':exportXlsx(S.sessions.find(x=>x.id===b.dataset.id),false);break;
+    case 'share':exportXlsx(S.sessions.find(x=>x.id===b.dataset.id),true);break;
+    case 'del':{const id=b.dataset.id;const t=S.sessions.find(x=>x.id===id);
+      confirmBox('Hapus sesi ini?',`${esc(t.header.site||'Tanpa nama')} · ${sessionCount(t)}. Data yang dihapus tidak bisa dikembalikan, kecuali ada di file backup.`,'Ya, hapus',async()=>{
+        S.sessions=S.sessions.filter(x=>x.id!==id);await store.del(id).catch(()=>{});if(S.activeId===id)S.activeId=null;saveMeta();render();},true);break;}
+    case 'yes':{const cb=confirmCb;confirmCb=null;closeModal();cb&&cb();break;}
+    case 'close':closeModal();break;
+    case 'filt':filt.st=b.dataset.k;render();break;
+    case 'install':if(installEvt){installEvt.prompt();installEvt.userChoice.finally(()=>{installEvt=null;render();});}break;
+    case 'backup':backup();break;
+    case 'restore':$('#restoreFile').click();break;
+    case 'editInfo':draft=JSON.parse(JSON.stringify(s));draft._new=false;go('setup');break;
+    case 'cancelSetup':draft=null;go(cur()?'summary':'sessions');break;
+    case 'addUnitDraft':{readDraft();const v=$('#unitIn').value.trim().toUpperCase();if(v&&!draft.units.includes(v))draft.units.push(v);vSetup();$('#unitIn').focus();break;}
+    case 'rmUnitDraft':readDraft();draft.units.splice(+b.dataset.i,1);vSetup();break;
+    case 'saveSetup':{readDraft();const v=$('#unitIn').value.trim().toUpperCase();if(v&&!draft.units.includes(v))draft.units.push(v);
+      const isNew=draft._new;delete draft._new;
+      if(isNew){S.sessions.push(draft);S.activeId=draft.id;}
+      else{const i=S.sessions.findIndex(x=>x.id===draft.id);if(i>=0)S.sessions[i]=draft;}
+      const d=draft;draft=null;touch(d);persist(d);saveMeta();askPersist();go(isNew?'record':'summary');break;}
+    case 'addUnit':{const v=$('#unitAdd').value.trim().toUpperCase();if(!v)break;if(s.units.includes(v)){toast(v+' sudah ada');break;}
+      s.units.push(v);if(s.role==='exca'&&!xActive(s))s.exca.sel=v;commit(s);break;}
+    case 'dt':dtStep(b.dataset.u,b.dataset.k,tapTime(b));break;
+    case 'dtUndo':dtUndo(b.dataset.u);break;
+    case 'stopUnit':{const u=b.dataset.u;const c=activeCycle(s,u);
+      confirmBox('Stop amati '+u+'?',c?'Cycle yang sedang berjalan akan disimpan dengan tanda <b>tidak lengkap</b>.':'Unit dipindah ke daftar "Berhenti diamati". Bisa dilanjutkan lagi kapan saja.','Stop amati',()=>stopUnit(u),true);break;}
+    case 'resumeUnit':delete s.stopped[b.dataset.u];commit(s);break;
+    case 'endSession':{const open=s.role==='exca'?(xActive(s)?1:0):s.dt.cycles.filter(c=>!c.done).length;
+      confirmBox('Akhiri sesi?',`${open?`<b>${open}</b> cycle yang masih berjalan akan disimpan dengan tanda <b>tidak lengkap</b>. `:''}Semua data tetap tersimpan, dan sesi bisa dibuka kembali bila perlu.`,'Akhiri sesi',()=>{
+        endSession(s,false);render();toast('Sesi selesai');setTimeout(()=>confirmBox('Ekspor sekarang?','Simpan hasil sesi ini ke file Excel.','Ekspor Excel',()=>exportXlsx(s,false)),400);},true);break;}
+    case 'reopen':s.status='aktif';s.endedAt=null;s.autoEnded=false;toast('Sesi dibuka kembali');commit(s);break;
+    case 'dtedit':dtEdit(b.dataset.id);break;
+    case 'dtSave':dtSave(b.dataset.id);break;
+    case 'dtDel':{const id=b.dataset.id;confirmBox('Hapus cycle ini?','Tindakan ini tidak bisa dibatalkan.','Ya, hapus',()=>dtSave(id,true),true);break;}
+    case 'xsel':{if(!isLive(s))break;const k=xActive(s);if(k){k.hauler=b.dataset.u;}else s.exca.sel=(s.exca.sel===b.dataset.u?null:b.dataset.u);commit(s);break;}
+    case 'xtap':xTap(tapTime(b));break;
+    case 'xfull':xFull(tapTime(b));break;
+    case 'xundo':xUndo();break;
+    case 'xedit':xEdit(b.dataset.id);break;
+    case 'xSave':xSave(b.dataset.id);break;
+    case 'xDel':{const id=b.dataset.id;confirmBox('Hapus siklus ini?','Tindakan ini tidak bisa dibatalkan.','Ya, hapus',()=>xSave(id,true),true);break;}
+  }
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='snd'){S.sound=e.target.checked;saveMeta();}
+  if(e.target.name==='role'&&draft){readDraft();vSetup();}
+  if(e.target.id==='restoreFile'&&e.target.files[0]){restore(e.target.files[0]);e.target.value='';}
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='q'){filt.q=e.target.value;
+    const all=S.sessions.slice().sort((a,b)=>b.created-a.created);const list=all.filter(matches);
+    const groups=[];list.forEach(s=>{const k=dayKey(s);let g=groups.find(x=>x.k===k);if(!g){g={k,items:[]};groups.push(g);}g.items.push(s);});
+    groups.sort((a,b)=>a.k<b.k?1:-1);$('#slist').innerHTML=sessionList(groups,all.length);}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.id==='unitAdd'){e.preventDefault();document.querySelector('[data-a=addUnit]').click();}
+  if(e.key==='Enter'&&e.target.id==='unitIn'){e.preventDefault();document.querySelector('[data-a=addUnitDraft]').click();}
+  if(e.key==='Escape'&&!modal.hidden)closeModal();
+});
+
+/* ---------- clock / running timers ---------- */
+function tick(){
+  const now=Date.now(),d=new Date(now);
+  $('#clock').textContent=p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());
+  document.querySelectorAll('[data-since]').forEach(el=>{el.textContent=fmtD((now-Number(el.dataset.since))/1000);});
+}
+setInterval(tick,250);
+
+/* ---------- XLSX writer (no library, works offline) ---------- */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+function zip(files){
+  const enc=new TextEncoder();const parts=[],cd=[];let off=0;
+  const d=new Date();const dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  for(const [name,str] of files){
+    const nb=enc.encode(name),data=enc.encode(str),crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,dt,true);h.setUint16(12,dd,true);
+    h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,nb.length,true);h.setUint16(28,0,true);
+    parts.push(new Uint8Array(h.buffer),nb,data);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,dt,true);c.setUint16(14,dd,true);
+    c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,nb.length,true);
+    c.setUint32(42,off,true);cd.push(new Uint8Array(c.buffer),nb);
+    off+=30+nb.length+data.length;
+  }
+  const cdSize=cd.reduce((a,b)=>a+b.length,0);
+  const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);
+  e.setUint32(12,cdSize,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+const xe=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+const colL=n=>{let s='';n++;while(n){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;};
+const xTime=ms=>{const d=new Date(ms);return (Date.UTC(d.getFullYear(),d.getMonth(),d.getDate(),d.getHours(),d.getMinutes(),d.getSeconds(),d.getMilliseconds())-Date.UTC(1899,11,30))/86400000;};
+function sheetXml(rows,widths){
+  let x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+  if(widths)x+='<cols>'+widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')+'</cols>';
+  x+='<sheetData>';
+  rows.forEach((r,ri)=>{x+=`<row r="${ri+1}">`;r.forEach((c,ci)=>{if(c==null||c===''||(typeof c==='object'&&c.v==null&&!c.f))return;
+    const ref=colL(ci)+(ri+1);const o=typeof c==='object'?c:{v:c};const st=o.s?` s="${o.s}"`:'';
+    if(o.f)x+=`<c r="${ref}"${st}><f>${xe(o.f)}</f></c>`;
+    else if(typeof o.v==='number'&&isFinite(o.v))x+=`<c r="${ref}"${st}><v>${o.v}</v></c>`;
+    else x+=`<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xe(o.v)}</t></is></c>`;});x+='</row>';});
+  return x+'</sheetData></worksheet>';
+}
+function buildXlsx(sheets){
+  const st='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+   '<numFmts count="3"><numFmt numFmtId="164" formatCode="hh:mm:ss"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy hh:mm:ss"/><numFmt numFmtId="166" formatCode="0.0"/></numFmts>'+
+   '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>'+
+   '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFCE7A3"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+   '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders>'+
+   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+   '<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+   '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
+   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>'+
+   '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
+   '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
+   '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
+   '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'+
+   '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  const files=[
+   ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
+     sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'],
+   ['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+   ['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+
+     sheets.map((s,i)=>`<sheet name="${xe(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+'</sheets></workbook>'],
+   ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+     sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+
+     `<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+   ['xl/styles.xml',st],
+   ...sheets.map((s,i)=>[`xl/worksheets/sheet${i+1}.xml`,sheetXml(s.rows,s.widths)])
+  ];
+  return zip(files);
+}
+const T=ms=>ms==null?null:{v:xTime(ms),s:1};
+const H=v=>({v,s:2});
+function infoSheet(s){
+  const h=s.header;
+  const rows=[[{v:s.role==='exca'?'CYCLE TIME EXCAVATOR':'CYCLE TIME DUMP TRUCK (HD / DT)',s:6}],[],
+    ['Peran pencatat',ROLE[s.role].label],
+    ...HDR.map(([k,l])=>[l,k==='date'?(h[k]||'').replace('T',' '):(h[k]||'')]),
+    ['Nomor lambung diamati',s.units.join(', ')],
+    ['Status sesi',isLive(s)?'Aktif (belum diakhiri)':s.autoEnded?'Diakhiri otomatis (tidak ada aktivitas > '+AUTO_CLOSE_H+' jam)':'Selesai'],
+    ['Sesi dibuat',{v:xTime(s.created),s:3}],
+    ['Sesi diakhiri',s.endedAt?{v:xTime(s.endedAt),s:3}:'–'],
+    [],['Diekspor',{v:xTime(Date.now()),s:3}],
+    ['Aplikasi','Lap Time Tambang v'+VERSION],
+    ['Catatan','Semua jam = jam HP pencatat. Gabungkan file Front dan Dumping berdasarkan No. DT dan urutan jam.'],
+    s.role==='exca'?['Definisi','Filling time = digging pertama sampai dumping terakhir selesai. Jumlah pass = bucket yang dituang.']:[]];
+  return {name:'Info',rows,widths:[28,70]};
+}
+function dtSheets(s){
+  const o=ROLE[s.role].off;
+  const cyc=s.dt.cycles.slice().sort((a,b)=>(a.t.find(v=>v!=null)??0)-(b.t.find(v=>v!=null)??0));
+  const head=['No. Cycle','No. DT / HD','Cycle ke- (unit)','Status','Fuel Initial (L)','Fuel Final (L)','ODO Initial (km)','ODO Final (km)','Payload (ton)',
+    'T0 Arrival at Front','T1 Idle','T2 Manuver','T3 Loading','T4 Trucking Full','T5 Arrival Dump','T6 Idle','T7 Manuver','T8 Dumping','T9 Trucking Empty','Remarks'];
+  const dn=s.role==='front'?['Idle Front (dtk)','Manuver Front (dtk)','Loading (dtk)']:['Idle Dump (dtk)','Manuver Dump (dtk)','Dumping (dtk)'];
+  const rows=[[...head,...dn].map(H)];
+  cyc.forEach((c,i)=>{const r=i+2;const L=k=>colL(9+o+k)+r;
+    const df=(a,b)=>({f:`IF(AND(ISNUMBER(${L(a)}),ISNUMBER(${L(b)})),ROUND((${L(b)}-${L(a)})*86400,0),"")`});
+    const rem=[c.remarks,c.noIdle?'tanpa antre':''].filter(Boolean).join('; ');
+    const st=dtStatus(c);
+    rows.push([i+1,c.unit,c.seq,st==='lengkap'?'Lengkap':st==='berjalan'?'Berjalan':'Tidak lengkap',c.fuel0??null,c.fuel1??null,c.odo0??null,c.odo1??null,c.payload??null,...c.t.map(T),rem,df(1,2),df(2,3),df(3,4)]);});
+  const w=[9,12,10,13,10,10,11,11,10,...Array(10).fill(11),24,12,12,12];
+  return [{name:'CT HD-DT',rows,widths:w}];
+}
+function xSheets(s){
+  const rows=[['No. Siklus','No. Hauler (HD / DT)','Pass','Digging T1 (detik)','Loaded Swing T2 (detik)','Dumping T3 (detik)','Empty Swing T4 (detik)','Cycle Time Excavator (detik)','Hauler Filling Time (detik)','Jumlah Pass (bucket dituang)','Mulai','Keterangan'].map(H)];
+  const log=[['No. Siklus','No. Hauler','Pass','Fase','Jam mulai','Durasi (detik)'].map(H)];
+  s.exca.siklus.forEach(k=>{
+    const ps=xPasses(k);const r0=rows.length+1;
+    const note=[k.remarks,k.incomplete?'tidak lengkap (sesi diakhiri sebelum DT penuh)':k.end==null?'siklus belum selesai':''].filter(Boolean).join('; ');
+    ps.forEach((p,i)=>{const r=rows.length+1;
+      rows.push([i===0?k.no:null,i===0?k.hauler:null,i+1,...p.d.map(v=>v==null?null:{v:Math.round(v*10)/10,s:5}),
+        {f:`IF(COUNT(D${r}:G${r})=4,SUM(D${r}:G${r}),"")`,s:5},null,null,i===0?T(p.start):null,i===0?note:null]);});
+    const r1=rows.length;
+    const fill=xFill(k);
+    rows.push([{v:'Rata-rata',s:4},k.hauler,null,...['D','E','F','G','H'].map(c=>({f:`IFERROR(AVERAGE(${c}${r0}:${c}${r1}),"")`,s:5})),
+      fill==null||k.incomplete?null:{v:Math.round(fill*10)/10,s:5},xBuckets(k),null,null]);
+    rows.push([]);
+    const pp=xPasses(k);
+    k.taps.forEach((tp,i)=>{const d=pp[Math.floor(i/4)].d[tp.p];log.push([k.no,k.hauler,Math.floor(i/4)+1,PH[tp.p],T(tp.t),d==null?null:{v:Math.round(d*10)/10,s:5}]);});
+    if(k.end!=null)log.push([k.no,k.hauler,null,k.incomplete?'Sesi diakhiri':'DT Penuh',T(k.end),null]);
+  });
+  return [{name:'CT EXE',rows,widths:[10,14,6,12,13,12,13,14,14,12,10,30]},{name:'Log Waktu',rows:log,widths:[10,12,6,22,11,12]}];
+}
+async function exportXlsx(s,share){
+  if(!s)return;
+  const sheets=[infoSheet(s),...(s.role==='exca'?xSheets(s):dtSheets(s))];
+  const blob=buildXlsx(sheets);
+  const nm=('CT_'+{front:'DT-Front',dump:'DT-Dumping',exca:'Excavator'}[s.role]+'_'+(s.header.site||'site')+'_'+(s.header.auditor||'')+'_'+stamp()).replace(/[^\w\-]+/g,'_').replace(/_+/g,'_')+'.xlsx';
+  if(share){
+    try{const f=new File([blob],nm,{type:blob.type});
+      if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:nm});return;}
+    }catch(e){if(e&&e.name==='AbortError')return;}
+    toast('Bagikan tidak didukung di HP ini, file diunduh');
+  }
+  try{downloadBlob(blob,nm);toast('File Excel diunduh');}catch(e){toast('Gagal mengunduh file');}
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  await store.open();
+  try{
+    const arr=await store.all();S.sessions=arr.map(normalize);
+    const m=await store.getMeta();
+    if(m.activeId)S.activeId=m.activeId;if(m.view)S.view=m.view;if(typeof m.sound==='boolean')S.sound=m.sound;
+  }catch(e){storageErr=true;}
+  const n=autoClose();
+  if(S.view==='setup')S.view='sessions';
+  render();
+  if(n)toast(n+' sesi lama ditutup otomatis');
+  try{if(navigator.storage&&navigator.storage.persisted)persisted=await navigator.storage.persisted();}catch(e){}
+  if(S.sessions.length)askPersist();
+  if(S.view==='sessions')render();
+}
+boot();
+
+if('serviceWorker' in navigator&&location.protocol!=='file:'){
+  window.addEventListener('load',()=>{
+    const hadController=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
+        w.addEventListener('statechange',()=>{if(w.state==='activated'&&hadController)toast('Versi baru terpasang. Tutup lalu buka lagi aplikasi.');});});
+    }).catch(()=>{});
+  });
+}
+})();
+</script>
+</body>
+</html>
