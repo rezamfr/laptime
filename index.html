@@ -186,7 +186,7 @@ td.inc{color:var(--danger);font-weight:600}
 <script>
 (function(){
 "use strict";
-const VERSION='2.0';
+const VERSION='2.1';
 const AUTO_CLOSE_H=12;
 const $=s=>document.querySelector(s);
 const app=$('#app');
@@ -381,13 +381,13 @@ function xUndo(){
   commit(s);
 }
 /* A phase lasts until the next tap. The very last tap of a cycle ends at "DT Penuh":
-   that is reliable only for Dumping (operator presses right after the last dump). A trailing
-   Empty Swing or Digging (pre-dig for the next truck) is not timed, and a forced/auto end times nothing. */
+   the auditor presses it when the last Empty Swing (or the last Dumping) finishes, so both are timed.
+   A trailing Digging or Loaded Swing is not timed, and a forced/auto end times nothing. */
 function xPasses(k){
   const out=[];const n=k.taps.length;
   k.taps.forEach((tp,i)=>{
     let nx=i<n-1?k.taps[i+1].t:k.end;
-    if(i===n-1&&(k.incomplete||tp.p!==2))nx=null;
+    if(i===n-1&&(k.incomplete||tp.p===0||tp.p===1))nx=null;
     const pi=Math.floor(i/4);
     out[pi]=out[pi]||{start:tp.t,d:[null,null,null,null],dumped:false};
     out[pi].d[tp.p]=nx!=null?(nx-tp.t)/1000:null;
@@ -403,6 +403,11 @@ function xFill(k){
   if(li<0)return null;
   const endDump=li<k.taps.length-1?k.taps[li+1].t:(k.incomplete?null:k.end);
   return endDump!=null?(endDump-k.taps[0].t)/1000:null;
+}
+function xGap(s,k){
+  const i=s.exca.siklus.indexOf(k),nx=s.exca.siklus[i+1];
+  if(k.end==null||k.incomplete||!nx||!nx.taps.length)return null;
+  return (nx.taps[0].t-k.end)/1000;
 }
 const avg=a=>{a=a.filter(v=>v!=null);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;};
 
@@ -581,7 +586,7 @@ function vExca(s){
   </button>
   <div class="xrow">
     <button class="tap alt" data-a="xundo">Batalkan</button>
-    <button class="tap" data-tap data-a="xfull" style="background:var(--fg);color:var(--bg)" ${!k?'disabled':''}>DT Penuh<span class="k" style="opacity:.8">tekan setelah dumping terakhir</span></button>
+    <button class="tap" data-tap data-a="xfull" style="background:var(--fg);color:var(--bg)" ${!k?'disabled':''}>DT Penuh<span class="k" style="opacity:.8">tekan saat empty swing terakhir selesai</span></button>
   </div>`:''}
   ${passes.length?`<div class="tw"><table><thead><tr><th>Pass</th>${PH.map(p=>`<th>${p}</th>`).join('')}<th>CT</th></tr></thead><tbody>
     ${passes.map((p,i)=>`<tr><td>${i+1}</td>${p.d.map(v=>`<td class="m">${fmtS1(v)}</td>`).join('')}<td class="m">${fmtS1(p.ct)}</td></tr>`).reverse().join('')}</tbody></table></div>`:''}
@@ -597,9 +602,9 @@ function vSummary(){
     <div class="row"><button class="btn primary" data-a="exp" data-id="${s.id}">Ekspor Excel</button>${navigator.canShare?`<button class="btn" data-a="share" data-id="${s.id}">Bagikan Excel</button>`:''}</div></div>`;
   if(s.role==='exca'){
     const rows=s.exca.siklus.map(k=>{const ps=xPasses(k);return `<tr class="click" data-a="xedit" data-id="${k.id}"><td>${k.no}</td><td class="m">${esc(k.hauler)}</td><td class="m">${fmtT(k.taps[0]&&k.taps[0].t)}</td><td>${xBuckets(k)}</td>
-      <td class="m">${fmtS1(avg(ps.map(p=>p.ct)))}</td><td class="m ${k.incomplete?'inc':k.end==null?'open':''}">${k.incomplete?'tidak lengkap':k.end==null?'berjalan':fmtS1(xFill(k))}</td></tr>`;}).join('');
-    app.innerHTML=info+(rows?`<div class="tw"><table><thead><tr><th>Siklus</th><th>DT</th><th>Mulai</th><th>Bucket</th><th>Rata CT (s)</th><th>Filling (s)</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="small muted">Filling time = digging pertama sampai dumping terakhir selesai. Ketuk baris untuk detail pass.</div>`:'<div class="empty">Belum ada siklus tercatat.</div>');
+      <td class="m">${fmtS1(avg(ps.map(p=>p.ct)))}</td><td class="m ${k.incomplete?'inc':k.end==null?'open':''}">${k.incomplete?'tidak lengkap':k.end==null?'berjalan':fmtS1(xFill(k))}</td><td class="m">${fmtS1(xGap(s,k))}</td></tr>`;}).join('');
+    app.innerHTML=info+(rows?`<div class="tw"><table><thead><tr><th>Siklus</th><th>DT</th><th>Mulai</th><th>Bucket</th><th>Rata CT (s)</th><th>Filling (s)</th><th>Ganti DT (s)</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="small muted">Filling time = digging pertama sampai dumping terakhir selesai. Ganti DT = dari DT Penuh sampai digging pertama untuk DT berikutnya. Ketuk baris untuk detail pass.</div>`:'<div class="empty">Belum ada siklus tercatat.</div>');
     return;
   }
   const R=ROLE[s.role],o=R.off;
@@ -850,7 +855,7 @@ function infoSheet(s){
     [],['Diekspor',{v:xTime(Date.now()),s:3}],
     ['Aplikasi','Lap Time Tambang v'+VERSION],
     ['Catatan','Semua jam = jam HP pencatat. Gabungkan file Front dan Dumping berdasarkan No. DT dan urutan jam.'],
-    s.role==='exca'?['Definisi','Filling time = digging pertama sampai dumping terakhir selesai. Jumlah pass = bucket yang dituang.']:[]];
+    s.role==='exca'?['Definisi','Filling time = digging pertama sampai dumping terakhir selesai. Empty swing terakhir berakhir saat DT Penuh ditekan. Waktu ganti DT = dari DT Penuh sampai digging pertama untuk DT berikutnya. Jumlah pass = bucket yang dituang.']:[]];
   return {name:'Info',rows,widths:[28,70]};
 }
 function dtSheets(s){
@@ -869,24 +874,24 @@ function dtSheets(s){
   return [{name:'CT HD-DT',rows,widths:w}];
 }
 function xSheets(s){
-  const rows=[['No. Siklus','No. Hauler (HD / DT)','Pass','Digging T1 (detik)','Loaded Swing T2 (detik)','Dumping T3 (detik)','Empty Swing T4 (detik)','Cycle Time Excavator (detik)','Hauler Filling Time (detik)','Jumlah Pass (bucket dituang)','Mulai','Keterangan'].map(H)];
+  const rows=[['No. Siklus','No. Hauler (HD / DT)','Pass','Digging T1 (detik)','Loaded Swing T2 (detik)','Dumping T3 (detik)','Empty Swing T4 (detik)','Cycle Time Excavator (detik)','Hauler Filling Time (detik)','Jumlah Pass (bucket dituang)','Waktu Ganti ke DT Berikutnya (detik)','Mulai','Keterangan'].map(H)];
   const log=[['No. Siklus','No. Hauler','Pass','Fase','Jam mulai','Durasi (detik)'].map(H)];
   s.exca.siklus.forEach(k=>{
     const ps=xPasses(k);const r0=rows.length+1;
     const note=[k.remarks,k.incomplete?'tidak lengkap (sesi diakhiri sebelum DT penuh)':k.end==null?'siklus belum selesai':''].filter(Boolean).join('; ');
     ps.forEach((p,i)=>{const r=rows.length+1;
       rows.push([i===0?k.no:null,i===0?k.hauler:null,i+1,...p.d.map(v=>v==null?null:{v:Math.round(v*10)/10,s:5}),
-        {f:`IF(COUNT(D${r}:G${r})=4,SUM(D${r}:G${r}),"")`,s:5},null,null,i===0?T(p.start):null,i===0?note:null]);});
+        {f:`IF(COUNT(D${r}:G${r})=4,SUM(D${r}:G${r}),"")`,s:5},null,null,null,i===0?T(p.start):null,i===0?note:null]);});
     const r1=rows.length;
-    const fill=xFill(k);
+    const fill=xFill(k),gap=xGap(s,k);
     rows.push([{v:'Rata-rata',s:4},k.hauler,null,...['D','E','F','G','H'].map(c=>({f:`IFERROR(AVERAGE(${c}${r0}:${c}${r1}),"")`,s:5})),
-      fill==null||k.incomplete?null:{v:Math.round(fill*10)/10,s:5},xBuckets(k),null,null]);
+      fill==null||k.incomplete?null:{v:Math.round(fill*10)/10,s:5},xBuckets(k),gap==null?null:{v:Math.round(gap*10)/10,s:5},null,null]);
     rows.push([]);
     const pp=xPasses(k);
     k.taps.forEach((tp,i)=>{const d=pp[Math.floor(i/4)].d[tp.p];log.push([k.no,k.hauler,Math.floor(i/4)+1,PH[tp.p],T(tp.t),d==null?null:{v:Math.round(d*10)/10,s:5}]);});
     if(k.end!=null)log.push([k.no,k.hauler,null,k.incomplete?'Sesi diakhiri':'DT Penuh',T(k.end),null]);
   });
-  return [{name:'CT EXE',rows,widths:[10,14,6,12,13,12,13,14,14,12,10,30]},{name:'Log Waktu',rows:log,widths:[10,12,6,22,11,12]}];
+  return [{name:'CT EXE',rows,widths:[10,14,6,12,13,12,13,14,14,12,14,10,30]},{name:'Log Waktu',rows:log,widths:[10,12,6,22,11,12]}];
 }
 async function exportXlsx(s,share){
   if(!s)return;

@@ -1,6 +1,6 @@
 /* Lap Time Tambang service worker: keeps the app usable with no signal.
    Change CACHE when any app file changes so phones pick up the new version. */
-const CACHE = 'laptime-v2.0';
+const CACHE = 'laptime-v2.1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 const FONT_CACHE = 'laptime-fonts';
 
