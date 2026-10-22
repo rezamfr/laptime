@@ -1,11 +1,13 @@
 /* Lap Time Tambang service worker: keeps the app usable with no signal.
    Change CACHE when any app file changes so phones pick up the new version. */
-const CACHE = 'laptime-v2.1';
+const CACHE = 'laptime-v2.1b';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 const FONT_CACHE = 'laptime-fonts';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache:'reload' skips the browser's HTTP cache (GitHub Pages caches files ~10 min),
+  // so a new version never gets installed with old files.
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -35,7 +37,7 @@ self.addEventListener('fetch', e => {
   const key = req.mode === 'navigate' ? './index.html' : req;
   e.respondWith(
     caches.open(CACHE).then(c => c.match(key).then(hit => {
-      const net = fetch(req).then(res => { if (res && res.ok) c.put(key, res.clone()); return res; }).catch(() => null);
+      const net = fetch(new Request(req.mode === 'navigate' ? './index.html' : req.url, { cache: 'no-cache' })).then(res => { if (res && res.ok) c.put(key, res.clone()); return res; }).catch(() => null);
       return hit || net.then(r => r || c.match('./index.html'));
     }))
   );
